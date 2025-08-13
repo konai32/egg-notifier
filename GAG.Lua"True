@@ -1,0 +1,600 @@
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local Workspace = game:GetService("Workspace")
+
+local LP = Players.LocalPlayer
+local PG = LP:WaitForChild("PlayerGui")
+
+-- Clean up any old instance
+pcall(function()
+	local old = PG:FindFirstChild("PixiemoGUI")
+	if old then old:Destroy() end
+end)
+
+-- ========== Helpers ==========
+local function hoverGrow(btn, base)
+	if not btn or not btn:IsA("GuiObject") then return end
+	btn.MouseEnter:Connect(function()
+		TweenService:Create(btn, TweenInfo.new(0.15, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+			Size = base + UDim2.fromOffset(5,3)
+		}):Play()
+	end)
+	btn.MouseLeave:Connect(function()
+		TweenService:Create(btn, TweenInfo.new(0.15, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {
+			Size = base
+		}):Play()
+	end)
+end
+
+local function toast(message)
+	pcall(function()
+		popupText.Text = message
+		popupFrame.Visible = true
+		mainPages.Visible = false
+	end)
+end
+
+-- ========== Root GUI ==========
+local gui = Instance.new("ScreenGui")
+gui.Name = "PixiemoGUI"
+gui.ResetOnSpawn = false
+gui.IgnoreGuiInset = true
+gui.Parent = PG
+
+-- Loading card
+local loadCard = Instance.new("Frame")
+loadCard.Size = UDim2.fromOffset(300, 120)
+loadCard.Position = UDim2.new(0.5,-150,0.5,-60)
+loadCard.BackgroundColor3 = Color3.fromRGB(195,235,185)
+loadCard.Parent = gui
+do
+	local uc = Instance.new("UICorner") uc.CornerRadius = UDim.new(0,15) uc.Parent = loadCard
+	local st = Instance.new("UIStroke") st.Color = Color3.fromRGB(150,190,130) st.Thickness = 3 st.Parent = loadCard
+
+	local t = Instance.new("TextLabel")
+	t.BackgroundTransparency = 1
+	t.Font = Enum.Font.FredokaOne
+	t.Text = "Welcome to Pixiemo Hub"
+	t.TextSize = 24
+	t.TextColor3 = Color3.fromRGB(80,110,70)
+	t.Size = UDim2.new(1,0,0,30)
+	t.Position = UDim2.new(0.5,0,0,15)
+	t.AnchorPoint = Vector2.new(0.5,0)
+	t.Parent = loadCard
+
+	local s = Instance.new("TextLabel")
+	s.Name = "Status"
+	s.BackgroundTransparency = 1
+	s.Font = Enum.Font.FredokaOne
+	s.Text = "Loading scripts..."
+	s.TextSize = 18
+	s.TextColor3 = Color3.fromRGB(80,110,70)
+	s.Size = UDim2.new(1,0,0,20)
+	s.Position = UDim2.new(0.5,0,0,45)
+	s.AnchorPoint = Vector2.new(0.5,0)
+	s.Parent = loadCard
+
+	local bar = Instance.new("Frame")
+	bar.Size = UDim2.new(1,-20,0,25)
+	bar.Position = UDim2.new(0.5,0,0,85)
+	bar.AnchorPoint = Vector2.new(0.5,0)
+	bar.BackgroundColor3 = Color3.fromRGB(134,185,112)
+	bar.Parent = loadCard
+	local uc2 = Instance.new("UICorner") uc2.CornerRadius = UDim.new(0,12) uc2.Parent = bar
+
+	local fill = Instance.new("Frame")
+	fill.Size = UDim2.new(0,0,1,0)
+	fill.BackgroundColor3 = Color3.fromRGB(80,200,120)
+	fill.Parent = bar
+	local uc3 = Instance.new("UICorner") uc3.CornerRadius = UDim.new(0,12) uc3.Parent = fill
+
+	task.spawn(function()
+		for i=0,1,1/30 do
+			fill.Size = UDim2.new(i,0,1,0)
+			task.wait(0.02)
+		end
+		loadCard.Visible = false
+		window.Visible = true
+	end)
+end
+
+-- Minimized pill
+local pill = Instance.new("TextButton")
+pill.Name = "MinimizedButton"
+pill.Text = "Pixiemo Hub"
+pill.Visible = false
+pill.AutoButtonColor = true
+pill.Size = UDim2.fromOffset(160,32)
+pill.Position = UDim2.new(1,-170,0,10)
+pill.BackgroundColor3 = Color3.fromRGB(134,185,112)
+pill.TextSize = 18
+pill.Font = Enum.Font.FredokaOne
+pill.TextColor3 = Color3.new(1,1,1)
+pill.Parent = gui
+do
+	local uc = Instance.new("UICorner") uc.CornerRadius = UDim.new(1,0) uc.Parent = pill
+	local st = Instance.new("UIStroke") st.Color = Color3.fromRGB(80,110,70) st.Thickness = 2 st.Parent = pill
+end
+
+-- Main window
+window = Instance.new("Frame")
+window.Size = UDim2.fromOffset(420,330)
+window.Position = UDim2.new(0.5,0,0.5,0)
+window.AnchorPoint = Vector2.new(0.5,0.5)
+window.BackgroundColor3 = Color3.fromRGB(195,235,185)
+window.Visible = false
+window.Parent = gui
+do
+	local uc = Instance.new("UICorner") uc.CornerRadius = UDim.new(0,25) uc.Parent = window
+	local st = Instance.new("UIStroke") st.Color = Color3.fromRGB(150,190,130) st.Thickness = 3 st.Parent = window
+end
+
+local container = Instance.new("Frame")
+container.BackgroundTransparency = 1
+container.Size = UDim2.fromScale(1,1)
+container.Parent = window
+
+local scaler = Instance.new("UIScale")
+scaler.Scale = 1
+scaler.Parent = container
+
+-- Header (drag + minimize)
+local header = Instance.new("Frame")
+header.Size = UDim2.new(1,0,0,35)
+header.BackgroundColor3 = Color3.fromRGB(134,185,112)
+header.Active = true
+header.Parent = container
+do
+	local uc = Instance.new("UICorner") uc.CornerRadius = UDim.new(0,25) uc.Parent = header
+	local title = Instance.new("TextLabel")
+	title.BackgroundTransparency = 1
+	title.Text = " Pixiemo Hub"
+	title.TextSize = 22
+	title.Font = Enum.Font.FredokaOne
+	title.TextColor3 = Color3.new(1,1,1)
+	title.Size = UDim2.fromScale(1,1)
+	title.Parent = header
+
+	local minimize = Instance.new("TextButton")
+	minimize.Size = UDim2.fromOffset(22,22)
+	minimize.AnchorPoint = Vector2.new(1,0.5)
+	minimize.Position = UDim2.new(1,-12,0.5,0)
+	minimize.BackgroundColor3 = Color3.fromRGB(255,212,59)
+	minimize.Text = ""
+	minimize.BorderSizePixel = 0
+	minimize.Parent = header
+	local uc2 = Instance.new("UICorner") uc2.CornerRadius = UDim.new(1,0) uc2.Parent = minimize
+	local dash = Instance.new("Frame")
+	dash.Size = UDim2.new(0.6,0,0.15,0)
+	dash.Position = UDim2.new(0.5,0,0.5,0)
+	dash.AnchorPoint = Vector2.new(0.5,0.5)
+	dash.BackgroundColor3 = Color3.new(1,1,1)
+	dash.BorderSizePixel = 0
+	dash.Parent = minimize
+	local uc3 = Instance.new("UICorner") uc3.CornerRadius = UDim.new(1,0) uc3.Parent = dash
+
+	minimize.MouseButton1Click:Connect(function()
+		-- shrink to pill
+		local aPos = header.AbsolutePosition + minimize.AbsolutePosition/1 -- just to ensure visibility
+		local screen = gui.AbsoluteSize
+		local nx,ny = (aPos.X)/screen.X, (aPos.Y)/screen.Y
+
+		pill.Position = UDim2.new(1,-170,0,10)
+		TweenService:Create(scaler, TweenInfo.new(0.25), {Scale = 0}):Play()
+		TweenService:Create(window, TweenInfo.new(0.25), {
+			Position = UDim2.new(nx,0,ny,0),
+			Size = UDim2.fromOffset(0,0)
+		}):Play()
+		task.delay(0.25, function()
+			window.Visible = false
+			pill.Visible = true
+		end)
+	end)
+
+	pill.MouseButton1Click:Connect(function()
+		pill.Visible = false
+		scaler.Scale = 1
+		window.Size = UDim2.fromOffset(420,330)
+		window.Position = UDim2.new(0.5,0,0.5,0)
+		window.Visible = true
+	end)
+
+	-- Dragging
+	local dragging, dragStart, startPos
+	header.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			dragging = true
+			dragStart = input.Position
+			startPos = window.Position
+		end
+	end)
+	header.InputEnded:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			dragging = false
+		end
+	end)
+	UserInputService.InputChanged:Connect(function(input)
+		if not dragging then return end
+		if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+			local d = input.Position - dragStart
+			window.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + d.X, startPos.Y.Scale, startPos.Y.Offset + d.Y)
+		end
+	end)
+end
+
+-- Pages
+local mainPages = Instance.new("Frame")
+mainPages.Size = UDim2.new(1,0,1,-55)
+mainPages.Position = UDim2.new(0,0,0,35)
+mainPages.BackgroundTransparency = 1
+mainPages.Parent = container
+
+local Main = Instance.new("Frame"); Main.Size = UDim2.fromScale(1,1); Main.BackgroundTransparency=1; Main.Parent=mainPages
+local Other = Instance.new("Frame"); Other.Size = UDim2.fromScale(1,1); Other.Visible=false; Other.BackgroundTransparency=1; Other.Parent=mainPages
+local Freeze = Instance.new("Frame"); Freeze.Size=UDim2.fromScale(1,1); Freeze.Visible=false; Freeze.BackgroundTransparency=1; Freeze.Parent=mainPages
+local Mutation = Instance.new("Frame"); Mutation.Size=UDim2.fromScale(1,1); Mutation.Visible=false; Mutation.BackgroundTransparency=1; Mutation.Parent=mainPages
+local Credits = Instance.new("Frame"); Credits.Size=UDim2.fromScale(1,1); Credits.Visible=false; Credits.BackgroundTransparency=1; Credits.Parent=mainPages
+
+-- Status/version
+local version = Instance.new("TextLabel")
+version.Name = "VersionLabel"
+version.BackgroundTransparency = 1
+version.Size = UDim2.new(1,0,0,20)
+version.Position = UDim2.new(0.5,0,1,-20)
+version.AnchorPoint = Vector2.new(0.5,1)
+version.Font = Enum.Font.FredokaOne
+version.Text = "Made by Pixiemo - V3.25"
+version.TextSize = 14
+version.TextColor3 = Color3.fromRGB(80,110,70)
+version.Parent = window
+
+-- Popup
+popupFrame = Instance.new("Frame")
+popupFrame.Name = "PopUpFrame"
+popupFrame.Visible = false
+popupFrame.Size = UDim2.fromOffset(300,140)
+popupFrame.Position = UDim2.new(0.5,0,0.5,0)
+popupFrame.AnchorPoint = Vector2.new(0.5,0.5)
+popupFrame.BackgroundColor3 = Color3.fromRGB(195,235,185)
+popupFrame.Parent = window
+do
+	local uc = Instance.new("UICorner") uc.CornerRadius = UDim.new(0,15) uc.Parent = popupFrame
+	local st = Instance.new("UIStroke") st.Thickness = 3 st.Color = Color3.fromRGB(150,190,130) st.Parent = popupFrame
+	local pad = Instance.new("UIPadding") pad.PaddingTop=UDim.new(0,10) pad.PaddingBottom=UDim.new(0,10) pad.PaddingLeft=UDim.new(0,10) pad.PaddingRight=UDim.new(0,10) pad.Parent = popupFrame
+	popupText = Instance.new("TextLabel")
+	popupText.Name = "PopUpText"
+	popupText.BackgroundTransparency = 1
+	popupText.Font = Enum.Font.FredokaOne
+	popupText.TextSize = 18
+	popupText.TextColor3 = Color3.fromRGB(80,110,70)
+	popupText.TextWrapped = true
+	popupText.Size = UDim2.new(1,0,0.6,0)
+	popupText.Position = UDim2.new(0.5,0,0,0)
+	popupText.AnchorPoint = Vector2.new(0.5,0)
+	popupText.Parent = popupFrame
+
+	local ok = Instance.new("TextButton")
+	ok.Name = "PopUpCloseButton"
+	ok.Size = UDim2.new(0.6,0,0,35)
+	ok.Position = UDim2.new(0.5,0,1,-10); ok.AnchorPoint = Vector2.new(0.5,1)
+	ok.Text = "OK"
+	ok.TextSize = 20
+	ok.Font = Enum.Font.FredokaOne
+	ok.TextColor3 = Color3.new(1,1,1)
+	ok.BackgroundColor3 = Color3.fromRGB(134,185,112)
+	ok.Parent = popupFrame
+	local uc2 = Instance.new("UICorner") uc2.CornerRadius = UDim.new(0,10) uc2.Parent = ok
+	local st2 = Instance.new("UIStroke") st2.Thickness = 2 st2.Color = Color3.fromRGB(80,110,70) st2.Parent = ok
+	local base = ok.Size; hoverGrow(ok, base)
+
+	ok.MouseButton1Click:Connect(function()
+		popupFrame.Visible = false
+		mainPages.Visible = true
+	end)
+end
+
+-- ===== MAIN CONTENT =====
+local function makeToggleRow(parent, label, y)
+	local row = Instance.new("Frame")
+	row.Size = UDim2.new(0,360,0,40)
+	row.Position = UDim2.new(0.5,-180,0,y)
+	row.BackgroundTransparency = 1
+	row.Parent = parent
+
+	local t = Instance.new("TextLabel")
+	t.Size = UDim2.new(0.7,0,1,0)
+	t.BackgroundTransparency = 1
+	t.Font = Enum.Font.FredokaOne
+	t.Text = label
+	t.TextSize = 20
+	t.TextColor3 = Color3.fromRGB(80,110,70)
+	t.TextXAlignment = Enum.TextXAlignment.Left
+	t.Parent = row
+
+	local btn = Instance.new("TextButton")
+	btn.Size = UDim2.new(0.25,0,0.7,0)
+	btn.Position = UDim2.new(0.75,0,0.15,0)
+	btn.Text = "OFF"
+	btn.Font = Enum.Font.FredokaOne
+	btn.TextSize = 18
+	btn.TextColor3 = Color3.new(1,1,1)
+	btn.BackgroundColor3 = Color3.fromRGB(120,120,120)
+	btn.Parent = row
+	local uc = Instance.new("UICorner") uc.CornerRadius = UDim.new(0,10) uc.Parent = btn
+	hoverGrow(btn, btn.Size)
+
+	local on = false
+	local function set(v)
+		on = v
+		btn.Text = v and "ON" or "OFF"
+		btn.BackgroundColor3 = v and Color3.fromRGB(80,200,120) or Color3.fromRGB(120,120,120)
+	end
+	return row, btn, function() return on end, set
+end
+
+local function makeButton(parent, text, y)
+	local b = Instance.new("TextButton")
+	b.Size = UDim2.new(0,360,0,40)
+	b.Position = UDim2.new(0.5,-180,0,y)
+	b.BackgroundColor3 = Color3.fromRGB(134,185,112)
+	b.Text = text
+	b.TextSize = 20
+	b.Font = Enum.Font.FredokaOne
+	b.TextColor3 = Color3.new(1,1,1)
+	b.Parent = parent
+	local uc = Instance.new("UICorner") uc.CornerRadius = UDim.new(0,10) uc.Parent = b
+	local st = Instance.new("UIStroke") st.Thickness = 2 st.Color = Color3.fromRGB(80,110,70) st.Parent = b
+	hoverGrow(b, b.Size)
+	return b
+end
+
+-- ESP internals
+local eggOn = false
+local mutOn = false
+local eggHighlights = {} -- [Model]=Highlight
+local mutHighlights = {}
+
+local function isEgg(m) return m and m:IsA("Model") and m.Name:lower():find("egg") end
+local function isMutation(m) return m and m:IsA("Model") and m.Name:lower():find("mutation") end
+
+local function clearMap(map)
+	for inst,h in pairs(map) do if h then pcall(function() h:Destroy() end) end end
+	table.clear(map)
+end
+
+local function rescan(targetFn, map, enabled)
+	if not enabled then return end
+	for _,d in ipairs(Workspace:GetDescendants()) do
+		if targetFn(d) and not map[d] then
+			local h = Instance.new("Highlight")
+			h.FillTransparency = 0.7
+			h.OutlineTransparency = 0
+			h.Parent = d
+			map[d] = h
+		end
+	end
+	for m,h in pairs(map) do
+		if not m or not m.Parent then
+			if h then pcall(function() h:Destroy() end) end
+			map[m] = nil
+		end
+	end
+end
+
+local eggConn, mutConn
+
+-- EGG ESP row
+local _, eggBtn, getEgg, setEgg = makeToggleRow(Main, "馃崥 EGG ESP", 15)
+eggBtn.MouseButton1Click:Connect(function()
+	local turnOn = not getEgg(); setEgg(turnOn); eggOn = turnOn
+	if eggOn then
+		rescan(isEgg, eggHighlights, true)
+		if not eggConn then
+			eggConn = Workspace.DescendantAdded:Connect(function(d)
+				if eggOn and isEgg(d) then
+					local h = Instance.new("Highlight"); h.FillTransparency=0.7; h.Parent=d; eggHighlights[d]=h
+				end
+			end)
+		end
+	else
+		if eggConn then eggConn:Disconnect(); eggConn=nil end
+		clearMap(eggHighlights)
+	end
+end)
+
+-- Auto Stop at Rarest (UI only)
+local _, rareBtn, getRare, setRare = makeToggleRow(Main, "馃拵 Auto Stop at Rarest", 65)
+rareBtn.MouseButton1Click:Connect(function()
+	setRare(not getRare())
+	if getRare() and not getEgg() then
+		setRare(false)
+		toast("Enable EGG ESP first to use Auto Stop.")
+	end
+end)
+
+-- Auto Randomize (UI only)
+local _, randBtn, getRand, setRand = makeToggleRow(Main, "馃幉 Auto Randomize", 115)
+randBtn.MouseButton1Click:Connect(function()
+	setRand(not getRand())
+	if getRand() and not getEgg() then
+		setRand(false)
+		toast("Enable EGG ESP first to Auto-Randomize!")
+	end
+end)
+
+-- Manual Randomize (safe)
+local randManual = makeButton(Main, "馃幆 Randomize Manual", 165)
+randManual.MouseButton1Click:Connect(function()
+	toast("Manual Randomize needs your game鈥檚 RemoteEvent/args. Send paths and I鈥檒l wire it in.")
+end)
+
+-- Other Scripts page button
+local otherBtn = makeButton(Main, "鈿欙笍 Other Scripts", 215)
+otherBtn.MouseButton1Click:Connect(function()
+	Main.Visible=false; Other.Visible=true
+end)
+
+-- ===== Other Scripts =====
+local titleOther = Instance.new("TextLabel")
+titleOther.BackgroundTransparency=1
+titleOther.Size=UDim2.new(1,0,0,35)
+titleOther.Font=Enum.Font.FredokaOne
+titleOther.TextSize=22
+titleOther.TextColor3=Color3.fromRGB(80,110,70)
+titleOther.Text="Other Scripts"
+titleOther.Parent=Other
+
+local backFromOther = makeButton(Other,"鈫� Back",10); backFromOther.Size=UDim2.fromOffset(120,36); backFromOther.Position=UDim2.new(0,20,0,10)
+backFromOther.MouseButton1Click:Connect(function()
+	Other.Visible=false; Main.Visible=true
+end)
+
+local instantAge = makeButton(Other, "鉁� Instant Age Pet to 50", 65)
+instantAge.MouseButton1Click:Connect(function()
+	toast("Provide the RemoteEvent to age pets and I鈥檒l implement it safely.")
+end)
+
+local toFreeze = makeButton(Other, "鉂勶笍 Freeze Trade", 115)
+toFreeze.MouseButton1Click:Connect(function()
+	Other.Visible=false; Freeze.Visible=true
+end)
+
+local toMutation = makeButton(Other, "馃К Mutation Randomizer", 165)
+toMutation.MouseButton1Click:Connect(function()
+	Other.Visible=false; Mutation.Visible=true
+end)
+
+local toCredits = makeButton(Other, "鈩癸笍 Credits / Help", 215)
+toCredits.MouseButton1Click:Connect(function()
+	Other.Visible=false; Credits.Visible=true
+end)
+
+-- ===== Freeze Trade (safe UI only) =====
+local ftTitle = Instance.new("TextLabel")
+ftTitle.BackgroundTransparency=1
+ftTitle.Size=UDim2.new(1,0,0,35)
+ftTitle.Position=UDim2.new(0,0,0,45)
+ftTitle.Text="鉂勶笍 Freeze Trade"
+ftTitle.Font=Enum.Font.FredokaOne
+ftTitle.TextSize=22
+ftTitle.TextColor3=Color3.fromRGB(80,110,70)
+ftTitle.Parent=Freeze
+
+local listFrame = Instance.new("Frame")
+listFrame.Size = UDim2.fromOffset(360,80)
+listFrame.Position = UDim2.new(0.5,-180,0,95)
+listFrame.BackgroundColor3 = Color3.fromRGB(195,235,185)
+listFrame.Parent = Freeze
+do
+	local uc = Instance.new("UICorner") uc.CornerRadius = UDim.new(0,10) uc.Parent = listFrame
+	local st = Instance.new("UIStroke") st.Thickness = 2 st.Color = Color3.fromRGB(150,190,130) st.Parent = listFrame
+	local grid = Instance.new("UIGridLayout"); grid.Name="GridLayout"
+	grid.FillDirection = Enum.FillDirection.Horizontal
+	grid.CellSize = UDim2.new(0.5,-5,0,30)
+	grid.CellPadding = UDim2.new(0,5,0,5)
+	grid.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	grid.VerticalAlignment = Enum.VerticalAlignment.Center
+	grid.Parent = listFrame
+end
+
+local selectedPlayer: Player? = nil
+
+local function rebuildPlayers()
+	for _,c in ipairs(listFrame:GetChildren()) do
+		if c:IsA("TextButton") then c:Destroy() end
+	end
+	selectedPlayer = nil
+	for _,plr in ipairs(Players:GetPlayers()) do
+		if plr ~= LP then
+			local b = Instance.new("TextButton")
+			b.Name = plr.Name
+			b.Size = UDim2.new(1,0,1,0)
+			b.BackgroundColor3 = Color3.fromRGB(134,185,112)
+			b.Text = plr.Name
+			b.TextSize = 20
+			b.Font = Enum.Font.FredokaOne
+			b.TextColor3 = Color3.new(1,1,1)
+			b.Parent = listFrame
+			local uc = Instance.new("UICorner") uc.CornerRadius = UDim.new(0,5) uc.Parent = b
+			local st = Instance.new("UIStroke") st.Thickness = 1 st.Color = Color3.fromRGB(80,110,70) st.Parent = b
+			hoverGrow(b, b.Size)
+			b.MouseButton1Click:Connect(function()
+				for _,sib in ipairs(listFrame:GetChildren()) do
+					if sib:IsA("TextButton") then sib.BackgroundColor3 = Color3.fromRGB(134,185,112) end
+				end
+				b.BackgroundColor3 = Color3.fromRGB(80,200,120)
+				selectedPlayer = plr
+			end)
+		end
+	end
+end
+
+local freezeBtn = makeButton(Freeze,"鉂勶笍 Freeze Trade",190)
+freezeBtn.TextTransparency = 0; freezeBtn.BackgroundColor3 = Color3.fromRGB(80,200,120)
+freezeBtn.MouseButton1Click:Connect(function()
+	if not selectedPlayer then
+		toast("Select a player first!")
+	else
+		toast(("Pretending to 'freeze' %s (UI only). Hook your own RemoteEvent if your game supports this."):format(selectedPlayer.Name))
+	end
+end)
+
+local backFromFreeze = makeButton(Freeze,"鈫� Back",10); backFromFreeze.Size=UDim2.fromOffset(120,36); backFromFreeze.Position=UDim2.new(0,20,0,10)
+backFromFreeze.MouseButton1Click:Connect(function()
+	Freeze.Visible=false; Other.Visible=true
+end)
+
+Players.PlayerAdded:Connect(rebuildPlayers)
+Players.PlayerRemoving:Connect(rebuildPlayers)
+rebuildPlayers()
+
+-- ===== Mutation Page =====
+local backFromMutation = makeButton(Mutation,"鈫� Back",10); backFromMutation.Size=UDim2.fromOffset(120,36); backFromMutation.Position=UDim2.new(0,20,0,10)
+backFromMutation.MouseButton1Click:Connect(function()
+	Mutation.Visible=false; Other.Visible=true
+	-- ensure toggle visually resets if you turned it off
+end)
+
+local _, mBtn, getMut, setMut = makeToggleRow(Mutation, "馃 Mutation ESP", 65)
+mBtn.MouseButton1Click:Connect(function()
+	local turnOn = not getMut(); setMut(turnOn); mutOn = turnOn
+	if mutOn then
+		rescan(isMutation, mutHighlights, true)
+		if not mutConn then
+			mutConn = Workspace.DescendantAdded:Connect(function(d)
+				if mutOn and isMutation(d) then
+					local h = Instance.new("Highlight"); h.FillTransparency=0.7; h.Parent=d; mutHighlights[d]=h
+				end
+			end)
+		end
+	else
+		if mutConn then mutConn:Disconnect(); mutConn=nil end
+		clearMap(mutHighlights)
+	end
+end)
+
+local mutRand = makeButton(Mutation, "馃攢 Randomize Mutation", 115)
+mutRand.MouseButton1Click:Connect(function()
+	toast("Mutation randomizer requires game-specific remotes. Share the paths/args to implement.")
+end)
+
+-- ===== Credits =====
+local backFromCredits = makeButton(Credits,"鈫� Back",10); backFromCredits.Size=UDim2.fromOffset(120,36); backFromCredits.Position=UDim2.new(0,20,0,10)
+backFromCredits.MouseButton1Click:Connect(function()
+	Credits.Visible=false; Other.Visible=true
+end)
+
+local help = Instance.new("TextLabel")
+help.BackgroundTransparency = 1
+help.Font = Enum.Font.FredokaOne
+help.TextSize = 18
+help.TextColor3 = Color3.fromRGB(80,110,70)
+help.TextWrapped = true
+help.TextXAlignment = Enum.TextXAlignment.Center
+help.TextYAlignment = Enum.TextYAlignment.Center
+help.Size = UDim2.new(1,-40,0.7,0)
+help.Position = UDim2.new(0.5,0,0.5,-20)
+help.AnchorPoint = Vector2.new(0.5,0.5)
+help.Text = "If you encounter bugs or need help, message @oldterm. on Discord.\n\nYT for tutorials: @slighteat"
+help.Parent = Credits
